@@ -2,7 +2,7 @@ const nodemailer = require('nodemailer');
 
 const transporter = nodemailer.createTransport({
   host: 'smtp.office365.com', // Outlook SMTP server
-  port: 587,
+  port: 465,
   secure: false, // use TLS
   auth: {
     user: process.env.EMAIL_USER, // your Outlook email
