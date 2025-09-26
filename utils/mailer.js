@@ -1,14 +1,12 @@
 const nodemailer = require('nodemailer');
 
 const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
+  host: 'in-v3.mailjet.com',
   port: 587,
-  secure: false,
   auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASSWORD,
+    user: process.env.MAILJET_API_KEY,
+    pass: process.env.MAILJET_API_SECRET,
   },
-  tls: { rejectUnauthorized: false }
 });
 
 function sendOTPEmail(email, otp, name = '') {
@@ -18,10 +16,10 @@ function sendOTPEmail(email, otp, name = '') {
     ? `Use the following One-Time Password (OTP) to verify your SRM email and complete your registration:`
     : `Use the following One-Time Password (OTP) to reset your Unigram password:`;
 
-  const greeting = name ? `<p>Hello ${name},</p>` : `<p>Hello,</p>`;
+  const greeting = name ? `<p>Hello ${name},</p>` : <p>Hello,</p>;
 
   const mailOptions = {
-    from: '"Unigram" <srmunigram@gmail.com>',
+    from: '"Unigram" <srmunigram@gmail.com>', // your Gmail still works as sender
     to: email,
     subject: 'Your Unigram OTP',
     html: `
