@@ -12,7 +12,7 @@ async function sendOTPEmail(email, otp, name = '') {
 
   try {
     const response = await resend.emails.send({
-      from: 'Unigram <no-reply@yourdomain.com>',
+      from: 'Unigram <srmunigram@gmail.com>',
       to: email,
       subject: 'Your Unigram OTP',
       html: `
