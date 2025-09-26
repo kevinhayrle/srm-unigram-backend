@@ -14,6 +14,7 @@ app.use(cors({
   credentials: true // if you need to send cookies
 }));
 
+// Parse J
 
 // JSON middleware
 app.use(express.json());
