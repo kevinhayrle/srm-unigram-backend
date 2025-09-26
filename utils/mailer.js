@@ -1,21 +1,24 @@
 const nodemailer = require('nodemailer');
 
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  host: "smtp.gmail.com",
+  port: 587,
+  secure: false, // STARTTLS
   auth: {
     user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASSWORD
-  }
+    pass: process.env.EMAIL_PASSWORD,
+  },
+  tls: { rejectUnauthorized: false }
 });
 
-function sendOTPEmail(email, otp, name = '') {
+async function sendOTPEmail(email, otp, name = '') {
   console.log('📧 Sending OTP to:', email);
 
   const purposeText = name
     ? `Use the following One-Time Password (OTP) to verify your SRM email and complete your registration:`
     : `Use the following One-Time Password (OTP) to reset your Unigram password:`;
 
-  const greeting = name ? `<p>Hello ${name},</p>` : `<p>Hello,</p>`;
+  const greeting = name ? <p>Hello ${name},</p> : <p>Hello,</p>;
 
   const mailOptions = {
     from: '"Unigram" <srmunigram@gmail.com>',
@@ -30,10 +33,14 @@ function sendOTPEmail(email, otp, name = '') {
     `
   };
 
-  transporter.sendMail(mailOptions, (err, info) => {
-    if (err) console.error('❌ OTP email failed:', err);
-    else console.log('✅ OTP email sent:', info.response);
-  });
+  try {
+    const info = await transporter.sendMail(mailOptions);
+    console.log('✅ OTP email sent successfully:', info.response);
+    return true;
+  } catch (err) {
+    console.error('❌ OTP email failed:', err);
+    return false;
+  }
 }
 
 module.exports = { sendOTPEmail };
