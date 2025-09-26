@@ -8,9 +8,12 @@ console.log('👋 Unigram app.js started');
 
 const app = express();
 
-// CORS — allow all for dev
-app.use(cors({ origin: true, credentials: true }));
-console.log('✅ CORS configured');
+app.use(cors({
+  origin: 'https://srmunigram.vercel.app', // frontend URL
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  credentials: true // if you need to send cookies
+}));
+
 
 // JSON middleware
 app.use(express.json());
