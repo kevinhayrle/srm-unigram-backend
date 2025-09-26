@@ -48,50 +48,45 @@ exports.signupUser = async (req, res) => {
   }
 };
 
-// ---------------- VERIFY OTP ----------------
 exports.verifyOTP = async (req, res) => {
   const { email, otp } = req.body;
   if (!email || !otp) return res.status(400).json({ error: "OTP is required" });
 
   try {
-    // ---------------- DEV BYPASS START ----------------
+    // -------- DEV BYPASS --------
     const devBypassEnabled = process.env.NODE_ENV !== 'production' && process.env.ALLOW_DEV_OTP === 'true';
     const devTestOtp = process.env.DEV_TEST_OTP || '123';
 
     if (devBypassEnabled && otp === devTestOtp) {
       console.log('[DEV BYPASS] accepted dev OTP for', email);
 
-      // move to User collection as usual
-      const pendingUser = await PendingUser.findOne({ email });
-      if (!pendingUser) return res.status(400).json({ error: "No pending user found for dev bypass" });
-
-      const userhandle = pendingUser.email.replace("@srmist.edu.in", "");
-
-      const newUser = new User({
-        name: pendingUser.name,
-        regNumber: pendingUser.regNumber,
-        email: pendingUser.email,
-        password: pendingUser.password,
-        userhandle,
-        verified: true,
-        createdAt: new Date()
-      });
-
-      await newUser.save();
-      await PendingUser.deleteOne({ email });
+      // check if user already exists
+      let newUser = await User.findOne({ email });
+      if (!newUser) {
+        // create minimal user record
+        const userhandle = email.replace("@srmist.edu.in", "");
+        newUser = new User({
+          name: "DevUser",          // placeholder name
+          regNumber: "DEV123",      // placeholder reg number
+          email,
+          password: "devpassword",  // placeholder hashed password if you like
+          userhandle,
+          verified: true,
+          createdAt: new Date()
+        });
+        await newUser.save();
+      }
 
       const token = jwt.sign({ userId: newUser._id }, process.env.JWT_SECRET, { expiresIn: "1h" });
-
       return res.status(201).json({ message: "Signup complete (dev bypass)", token, name: newUser.name });
     }
-    // ---------------- DEV BYPASS END ----------------
+    // -------- END DEV BYPASS --------
 
-    // ---------------- ORIGINAL VERIFY LOGIC ----------------
+    // -------- ORIGINAL OTP CHECK --------
     const pendingUser = await PendingUser.findOne({ email, otp });
     if (!pendingUser) return res.status(400).json({ error: "Invalid or expired OTP" });
 
     const userhandle = pendingUser.email.replace("@srmist.edu.in", "");
-
     const newUser = new User({
       name: pendingUser.name,
       regNumber: pendingUser.regNumber,
