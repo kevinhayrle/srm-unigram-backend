@@ -27,19 +27,32 @@ exports.signupUser = async (req, res) => {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const hashedPassword = await hashPassword(password);
 
+    // Remove any previous pending user for this email
     await PendingUser.deleteOne({ email });
 
+    // Create PendingUser
     const pendingUser = new PendingUser({
       name,
       regNumber,
       email,
       password: hashedPassword,
-      otp,
+      otp, // original random OTP
       expiresAt: new Date(Date.now() + 10 * 60 * 1000)
     });
 
     await pendingUser.save();
-    await sendOTPEmail(email, otp, name);
+
+    // ---------------- DEV OTP OVERRIDE ----------------
+    // For local development only, force OTP to known value
+    if (process.env.NODE_ENV !== 'production' && process.env.ALLOW_DEV_OTP === 'true') {
+      pendingUser.otp = process.env.DEV_TEST_OTP || "123";
+      await pendingUser.save();
+      console.log(`[DEV] OTP for ${email} set to ${pendingUser.otp}`);
+    }
+    // ---------------- END DEV OTP OVERRIDE ----------------
+
+    // Send OTP email (optional, can still send real OTP or skip)
+    await sendOTPEmail(email, pendingUser.otp, name);
 
     res.status(200).json({ message: "OTP sent to your SRM email. Please verify to complete signup." });
   } catch (err) {
@@ -47,69 +60,37 @@ exports.signupUser = async (req, res) => {
     res.status(500).json({ error: "Server error during signup" });
   }
 };
-
+// ---------------- VERIFY OTP ----------------
 // ---------------- VERIFY OTP ----------------
 exports.verifyOTP = async (req, res) => {
   const { email, otp } = req.body;
+
   if (!email || !otp) return res.status(400).json({ error: "OTP is required" });
 
   try {
-    const devBypassEnabled = process.env.NODE_ENV !== 'production' && process.env.ALLOW_DEV_OTP === 'true';
-    const devTestOtp = process.env.DEV_TEST_OTP || '123';
+    const pendingUser = await PendingUser.findOne({ email, otp });
+    if (!pendingUser) return res.status(400).json({ error: "Invalid or expired OTP" });
 
-    let pendingUser;
-
-    if (devBypassEnabled && otp === devTestOtp) {
-      console.log('[DEV BYPASS] accepted dev OTP for', email);
-
-      // try to fetch real PendingUser if it exists
-      pendingUser = await PendingUser.findOne({ email });
-
-      if (!pendingUser) {
-        // create minimal placeholder to allow signup
-        pendingUser = {
-          name: "DevUser",
-          regNumber: "DEV123",
-          email,
-          password: "devpassword"
-        };
-      }
-    } else {
-      // normal OTP check
-      pendingUser = await PendingUser.findOne({ email, otp });
-      if (!pendingUser) return res.status(400).json({ error: "Invalid or expired OTP" });
-    }
-
-    // move PendingUser data to User collection
+    // derive userhandle from email
     const userhandle = pendingUser.email.replace("@srmist.edu.in", "");
 
+    // move to User collection
     const newUser = new User({
       name: pendingUser.name,
       regNumber: pendingUser.regNumber,
       email: pendingUser.email,
       password: pendingUser.password,
-      userhandle,
+      userhandle, // ✅ now properly set
       verified: true,
       createdAt: new Date()
     });
 
     await newUser.save();
-
-    // delete PendingUser only if it existed in DB
-    if (devBypassEnabled && otp === devTestOtp && pendingUser._id) {
-      await PendingUser.deleteOne({ email });
-    } else if (!devBypassEnabled) {
-      await PendingUser.deleteOne({ email });
-    }
+    await PendingUser.deleteOne({ email });
 
     const token = jwt.sign({ userId: newUser._id }, process.env.JWT_SECRET, { expiresIn: "1h" });
 
-    res.status(201).json({
-      message: devBypassEnabled && otp === devTestOtp ? "Signup complete (dev bypass)" : "Signup complete",
-      token,
-      name: newUser.name
-    });
-
+    res.status(201).json({ message: "Signup complete", token, name: newUser.name });
   } catch (err) {
     console.error("OTP verification error:", err);
     res.status(500).json({ error: "Server error during OTP verification" });
