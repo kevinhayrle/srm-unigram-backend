@@ -1,7 +1,7 @@
 const nodemailer = require('nodemailer');
 
 const transporter = nodemailer.createTransport({
-  host: 'smtp.office365.com',
+  host: 'outlook',
   auth: {
     user: process.env.EMAIL_USER, // your outlook email
     pass: process.env.EMAIL_PASSWORD, // app password if 2FA enabled
