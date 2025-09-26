@@ -1,10 +1,12 @@
 const nodemailer = require('nodemailer');
 
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  host: 'smtp.office365.com', // Outlook SMTP server
+  port: 587,
+  secure: false, // use TLS
   auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASSWORD
+    user: process.env.EMAIL_USER, // your Outlook email
+    pass: process.env.EMAIL_PASSWORD // your app password or regular password if allowed
   }
 });
 
@@ -18,7 +20,7 @@ function sendOTPEmail(email, otp, name = '') {
   const greeting = name ? `<p>Hello ${name},</p>` : `<p>Hello,</p>`;
 
   const mailOptions = {
-    from: '"Unigram" <capsulex.mailer@gmail.com>',
+    from: '"Unigram" <srmunigram@outlook.com>', // change to your Outlook email
     to: email,
     subject: 'Your Unigram OTP',
     html: `
