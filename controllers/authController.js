@@ -48,45 +48,34 @@ exports.signupUser = async (req, res) => {
   }
 };
 
+// ---------------- VERIFY OTP ----------------
 exports.verifyOTP = async (req, res) => {
   const { email, otp } = req.body;
   if (!email || !otp) return res.status(400).json({ error: "OTP is required" });
 
   try {
-    // -------- DEV BYPASS --------
+    // Dev-bypass config
     const devBypassEnabled = process.env.NODE_ENV !== 'production' && process.env.ALLOW_DEV_OTP === 'true';
     const devTestOtp = process.env.DEV_TEST_OTP || '123';
 
+    let pendingUser;
+
     if (devBypassEnabled && otp === devTestOtp) {
       console.log('[DEV BYPASS] accepted dev OTP for', email);
-
-      // check if user already exists
-      let newUser = await User.findOne({ email });
-      if (!newUser) {
-        // create minimal user record
-        const userhandle = email.replace("@srmist.edu.in", "");
-        newUser = new User({
-          name: "DevUser",          // placeholder name
-          regNumber: "DEV123",      // placeholder reg number
-          email,
-          password: "devpassword",  // placeholder hashed password if you like
-          userhandle,
-          verified: true,
-          createdAt: new Date()
-        });
-        await newUser.save();
+      // Use the pending user by email (ignore stored otp)
+      pendingUser = await PendingUser.findOne({ email });
+      if (!pendingUser) {
+        return res.status(400).json({ error: "No pending signup found for this email (dev bypass)" });
       }
-
-      const token = jwt.sign({ userId: newUser._id }, process.env.JWT_SECRET, { expiresIn: "1h" });
-      return res.status(201).json({ message: "Signup complete (dev bypass)", token, name: newUser.name });
+    } else {
+      // Normal verification: must match email AND otp
+      pendingUser = await PendingUser.findOne({ email, otp });
+      if (!pendingUser) return res.status(400).json({ error: "Invalid or expired OTP" });
     }
-    // -------- END DEV BYPASS --------
 
-    // -------- ORIGINAL OTP CHECK --------
-    const pendingUser = await PendingUser.findOne({ email, otp });
-    if (!pendingUser) return res.status(400).json({ error: "Invalid or expired OTP" });
-
+    // Move pendingUser -> User (same as your original flow)
     const userhandle = pendingUser.email.replace("@srmist.edu.in", "");
+
     const newUser = new User({
       name: pendingUser.name,
       regNumber: pendingUser.regNumber,
@@ -102,7 +91,8 @@ exports.verifyOTP = async (req, res) => {
 
     const token = jwt.sign({ userId: newUser._id }, process.env.JWT_SECRET, { expiresIn: "1h" });
 
-    res.status(201).json({ message: "Signup complete", token, name: newUser.name });
+    // Keep same response shape
+    res.status(201).json({ message: devBypassEnabled && otp === devTestOtp ? "Signup complete (dev bypass)" : "Signup complete", token, name: newUser.name });
 
   } catch (err) {
     console.error("OTP verification error:", err);
