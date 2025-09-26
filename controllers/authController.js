@@ -54,7 +54,6 @@ exports.verifyOTP = async (req, res) => {
   if (!email || !otp) return res.status(400).json({ error: "OTP is required" });
 
   try {
-    // Dev-bypass config
     const devBypassEnabled = process.env.NODE_ENV !== 'production' && process.env.ALLOW_DEV_OTP === 'true';
     const devTestOtp = process.env.DEV_TEST_OTP || '123';
 
@@ -62,18 +61,26 @@ exports.verifyOTP = async (req, res) => {
 
     if (devBypassEnabled && otp === devTestOtp) {
       console.log('[DEV BYPASS] accepted dev OTP for', email);
-      // Use the pending user by email (ignore stored otp)
+
+      // try to fetch real PendingUser if it exists
       pendingUser = await PendingUser.findOne({ email });
+
       if (!pendingUser) {
-        return res.status(400).json({ error: "No pending signup found for this email (dev bypass)" });
+        // create minimal placeholder to allow signup
+        pendingUser = {
+          name: "DevUser",
+          regNumber: "DEV123",
+          email,
+          password: "devpassword"
+        };
       }
     } else {
-      // Normal verification: must match email AND otp
+      // normal OTP check
       pendingUser = await PendingUser.findOne({ email, otp });
       if (!pendingUser) return res.status(400).json({ error: "Invalid or expired OTP" });
     }
 
-    // Move pendingUser -> User (same as your original flow)
+    // move PendingUser data to User collection
     const userhandle = pendingUser.email.replace("@srmist.edu.in", "");
 
     const newUser = new User({
@@ -87,12 +94,21 @@ exports.verifyOTP = async (req, res) => {
     });
 
     await newUser.save();
-    await PendingUser.deleteOne({ email });
+
+    // delete PendingUser only if it existed in DB
+    if (devBypassEnabled && otp === devTestOtp && pendingUser._id) {
+      await PendingUser.deleteOne({ email });
+    } else if (!devBypassEnabled) {
+      await PendingUser.deleteOne({ email });
+    }
 
     const token = jwt.sign({ userId: newUser._id }, process.env.JWT_SECRET, { expiresIn: "1h" });
 
-    // Keep same response shape
-    res.status(201).json({ message: devBypassEnabled && otp === devTestOtp ? "Signup complete (dev bypass)" : "Signup complete", token, name: newUser.name });
+    res.status(201).json({
+      message: devBypassEnabled && otp === devTestOtp ? "Signup complete (dev bypass)" : "Signup complete",
+      token,
+      name: newUser.name
+    });
 
   } catch (err) {
     console.error("OTP verification error:", err);
