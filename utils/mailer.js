@@ -8,8 +8,7 @@ const transporter = nodemailer.createTransport({
   }
 });
 
-// Wrap sendMail in a promise to use async/await
-async function sendOTPEmail(email, otp, name = '') {
+function sendOTPEmail(email, otp, name = '') {
   console.log('📧 Sending OTP to:', email);
 
   const purposeText = name
@@ -19,7 +18,7 @@ async function sendOTPEmail(email, otp, name = '') {
   const greeting = name ? `<p>Hello ${name},</p>` : `<p>Hello,</p>`;
 
   const mailOptions = {
-    from: `"Unigram" <${process.env.EMAIL_USER}>`,
+    from: '"Unigram" <srmunigram@gmail.com>',
     to: email,
     subject: 'Your Unigram OTP',
     html: `
@@ -31,14 +30,10 @@ async function sendOTPEmail(email, otp, name = '') {
     `
   };
 
-  try {
-    const info = await transporter.sendMail(mailOptions);
-    console.log('✅ OTP email sent:', info.response);
-    return true;
-  } catch (err) {
-    console.error('❌ OTP email failed:', err.message || err);
-    return false; // so backend can continue even if email fails
-  }
+  transporter.sendMail(mailOptions, (err, info) => {
+    if (err) console.error('❌ OTP email failed:', err);
+    else console.log('✅ OTP email sent:', info.response);
+  });
 }
 
 module.exports = { sendOTPEmail };
