@@ -1,40 +1,42 @@
+// mailer.js
 const nodemailer = require('nodemailer');
+require('dotenv').config();
 
 const transporter = nodemailer.createTransport({
-  host: 'in-v3.mailjet.com',
-  port: 587,
+  service: 'gmail',
   auth: {
-    user: process.env.MAILJET_API_KEY,
-    pass: process.env.MAILJET_API_SECRET,
-  },
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASSWORD
+  }
 });
 
-function sendOTPEmail(email, otp, name = '') {
-  console.log('📧 Sending OTP to:', email);
-
+async function sendOTPEmail(email, otp, name = '') {
   const purposeText = name
-    ? `Use the following One-Time Password (OTP) to verify your SRM email and complete your registration:`
-    : `Use the following One-Time Password (OTP) to reset your Unigram password:`;
+    ? `Use the following OTP to verify your SRM email and complete your registration:`
+    : `Use the following OTP to reset your Unigram password:`;
 
-  const greeting = name ? `<p>Hello ${name},</p>` : <p>Hello,</p>;
+  const greeting = name ? `Hello ${name},` : `Hello,`;
 
   const mailOptions = {
-    from: '"Unigram" <srmunigram@gmail.com>', // your Gmail still works as sender
+    from: `"Unigram" <${process.env.EMAIL_USER}>`,
     to: email,
     subject: 'Your Unigram OTP',
     html: `
-      ${greeting}
+      <p>${greeting}</p>
       <p>${purposeText}</p>
       <h2>${otp}</h2>
       <p>This OTP is valid for 10 minutes.</p>
-      <p>If you did not request this, please ignore this email.</p>
+      <p>If you did not request this, ignore this email.</p>
     `
   };
 
-  transporter.sendMail(mailOptions, (err, info) => {
-    if (err) console.error('❌ OTP email failed:', err);
-    else console.log('✅ OTP email sent:', info.response);
-  });
+  // ✅ Use async/await instead of callback
+  try {
+    const info = await transporter.sendMail(mailOptions);
+    console.log('✅ OTP email sent:', info.response);
+  } catch (err) {
+    console.error('❌ OTP email failed:', err);
+  }
 }
 
 module.exports = { sendOTPEmail };
