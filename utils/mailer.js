@@ -1,14 +1,16 @@
 const nodemailer = require('nodemailer');
 
 const transporter = nodemailer.createTransport({
-  host: 'outlook',
-  auth: {
-    user: process.env.EMAIL_USER, // your outlook email
-    pass: process.env.EMAIL_PASSWORD, // app password if 2FA enabled
-  },
+ host: 'smtp.office365.com',
+port: 587,
+secure: false, // use TLS
+auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASSWORD
+  }
 });
 
-async function sendOTPEmail(email, otp, name = '') {
+function sendOTPEmail(email, otp, name = '') {
   console.log('📧 Sending OTP to:', email);
 
   const purposeText = name
@@ -18,7 +20,7 @@ async function sendOTPEmail(email, otp, name = '') {
   const greeting = name ? `<p>Hello ${name},</p>` : `<p>Hello,</p>`;
 
   const mailOptions = {
-    from: `"Unigram" <${process.env.EMAIL_USER}>`,
+    from: '"Unigram" <srmunigram@outlook.com>',
     to: email,
     subject: 'Your Unigram OTP',
     html: `
@@ -27,17 +29,13 @@ async function sendOTPEmail(email, otp, name = '') {
       <h2>${otp}</h2>
       <p>This OTP is valid for 10 minutes.</p>
       <p>If you did not request this, please ignore this email.</p>
-    `,
+    `
   };
 
-  try {
-    const info = await transporter.sendMail(mailOptions);
-    console.log('✅ OTP email sent:', info.response);
-    return true;
-  } catch (err) {
-    console.error('❌ OTP email failed:', err.message || err);
-    return false; // allows backend to continue
-  }
+  transporter.sendMail(mailOptions, (err, info) => {
+    if (err) console.error('❌ OTP email failed:', err);
+    else console.log('✅ OTP email sent:', info.response);
+  });
 }
 
 module.exports = { sendOTPEmail };
