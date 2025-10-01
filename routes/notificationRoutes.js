@@ -3,7 +3,7 @@ const router = express.Router();
 const Notification = require("../models/Notification");
 const mongoose = require("mongoose");
 const auth = require("../middleware/authMiddleware");
-// ------------------ Fetch notifications for a user ------------------
+// -------------- Fetch notifications for a user ------------------
 router.get("/:userId", async (req, res) => {
   const { userId } = req.params;
 
